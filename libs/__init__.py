@@ -1,0 +1,2 @@
+class linxrtcgui(Exception):
+    pass
