@@ -27,6 +27,8 @@ HEADER_SIZE = struct.calcsize(HEADER_FMT)
 MAGIC = 0x737269
 VERSION = 1
 
+sock = socket.socket()
+
 
 
 
@@ -96,9 +98,7 @@ def recv_loop(sock):
             print("Disconnected:", e)
             break
 def start(username,password):
-    sock = socket.socket()
     sock.connect(("127.0.0.1", 7878))
-
     username = username.encode()
     password = password.encode()
 
@@ -119,30 +119,30 @@ def start(username,password):
 
         threading.Thread(target=recv_loop, args=(sock,), daemon=True).start()
 
-        while True:
-
-            try:
-                msg = input("> ")
-
-                payload = (
-                    struct.pack("!B", len(msg.encode())) +
-                    msg.encode()
-                )
-
-                send_packet(sock, TYPE_GMSG, payload)
-                
-                print("packe sending...")
         
+def on_send_message_socket(msg):
+        try:
             
-            except (BrokenPipeError, ConnectionResetError):
-                print("Disconnected")
-                break
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                break
 
-    sock.close()
+            payload = (
+                struct.pack("!B", len(msg.encode())) +
+                msg.encode()
+            )
+
+            send_packet(sock, TYPE_GMSG, payload)
+                    
+            print("packe sending...")
+            
+                
+        except (BrokenPipeError, ConnectionResetError):
+            print("Disconnected")
+            sock.close()
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            sock.close()
+               
 def apply_ctk_defaults():
 
     if USING_CTK:
@@ -242,9 +242,6 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         print(f"[CALLBACK] on_login(username={username!r}, password=<hidden>)")
         threading.Thread(target=start, args=(username,password,), daemon=True).start()
 
-        
-       
-
         if not self.host and not self.port and not self.rem  and not self.timeout:
             Toast(self,"Connection Detials not yet","warning")
             return
@@ -267,6 +264,8 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_send_message(self, message):
         """PLACEHOLDER CALLBACK — connect your message-send/encryption logic here."""
         print(f"[CALLBACK] on_send_message(message={message!r})")
+        on_send_message_socket(message)
+
 
     def on_attach(self):
         """PLACEHOLDER CALLBACK — connect your file-attachment logic here."""
