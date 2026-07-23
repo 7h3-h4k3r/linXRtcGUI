@@ -107,7 +107,7 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
 
     # -- placeholder-callback wrappers ----------------------------------
     def _handle_login(self):
-        print(self.app.host)
+        
         if self.app.connection:
             username = self.username_entry.get().strip()
             password = self.password_entry.get()

@@ -12,136 +12,8 @@ from .chatFrame import ChatFrame
 from .settingsWindow import SettingsWindow
 from .toastClass import Toast
 from libs.network import Network
-import struct
-import zlib
-import socket
-import struct
-import threading
-
-TYPE_LOGIN = 1
-TYPE_LOGIN_OK = 2
-TYPE_GMSG = 3
-HEADER_FMT = "!IBBBII"
-HEADER_SIZE = struct.calcsize(HEADER_FMT)
-
-MAGIC = 0x737269
-VERSION = 1
-
-sock = socket.socket()
-
-
-
-
-def recv_exact(sock, size):
-    data = b""
-
-    while len(data) < size:
-        chunk = sock.recv(size - len(data))
-
-        if not chunk:
-            raise ConnectionError("Connection closed")
-
-        data += chunk
-
-    return data
-
-
-def send_packet(sock, packet_type, payload, flags=0):
-    checksum = zlib.crc32(payload)
-
-    header = struct.pack(
-        HEADER_FMT,
-        MAGIC,
-        VERSION,
-        packet_type,
-        flags,
-        len(payload),
-        checksum
-    )
-
-    sock.sendall(header+payload)
-
-
-def recv_packet(sock):
-    header = recv_exact(sock, HEADER_SIZE)
-
-    magic, version, packet_type, flags, length, checksum = struct.unpack(
-        HEADER_FMT,
-        header
-    )
-
-    if magic != MAGIC:
-        raise ValueError("Invalid magic number")
-
-    payload = recv_exact(sock, length)
-
-    if zlib.crc32(payload) != checksum:
-        raise ValueError("Checksum failed")
-
-    return packet_type, payload
-
-
-def recv_loop(sock):
-    while True:
-        try:
-            packet_type, payload = recv_packet(sock)
-
-            if packet_type == TYPE_GMSG:
-                length = payload[0]
-                msg = payload[1:1 + length].decode()
-                print(msg)
-
-            else:
-                print("Packet:", packet_type)
-
-        except Exception as e:
-            print("Disconnected:", e)
-            break
-def start(username,password):
-    sock.connect(("127.0.0.1", 7878))
-    username = username.encode()
-    password = password.encode()
-
-    payload = (
-        struct.pack("!B", len(username)) +
-        username +
-        struct.pack("!B", len(password)) +
-        password
-    )
-
-    send_packet(sock, TYPE_LOGIN, payload)
-
-    packet_type, payload = recv_packet(sock)
-
-    print(payload.decode())
-
-    if packet_type == TYPE_LOGIN_OK:
-
-        threading.Thread(target=recv_loop, args=(sock,), daemon=True).start()
-
-        
-def on_send_message_socket(msg):
-        try:
-            
-
-            payload = (
-                struct.pack("!B", len(msg.encode())) +
-                msg.encode()
-            )
-
-            send_packet(sock, TYPE_GMSG, payload)
-                    
-            print("packe sending...")
-            
-                
-        except (BrokenPipeError, ConnectionResetError):
-            print("Disconnected")
-            sock.close()
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            sock.close()
+from libs.RtClient import RtClient
+  
                
 def apply_ctk_defaults():
 
@@ -160,10 +32,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         super().__init__()
         apply_ctk_defaults()
 
-        self.host = None
-        self.port = None 
-        self.remember = None 
-        self.timeout = None
+        self.rtc = None
         self.connection =None
     
         self.title("Secure Chat Client")
@@ -240,13 +109,16 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_login(self, username, password):
         """PLACEHOLDER CALLBACK — connect your authentication logic here."""
         print(f"[CALLBACK] on_login(username={username!r}, password=<hidden>)")
-        threading.Thread(target=start, args=(username,password,), daemon=True).start()
+        try:
+            self.connection = self.rtc.start(username,password)
+            if self.connection:
+                Toast(self,"cOzy Place for Hacker's")
+                self.login_frame.set_status("Authenticating...", "info")
+                self.after(700, lambda: self._simulate_login_result(username))
+        except Exception as e:
+            self.rtc.sock.close()
+            Toast(self,str(e),"error")
 
-        if not self.host and not self.port and not self.rem  and not self.timeout:
-            Toast(self,"Connection Detials not yet","warning")
-            return
-        self.login_frame.set_status("Authenticating...", "info")
-        self.after(700, lambda: self._simulate_login_result(username))
 
     def _simulate_login_result(self, username):
         """Visual-only simulation so the GUI is demonstrable stand-alone."""
@@ -264,7 +136,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_send_message(self, message):
         """PLACEHOLDER CALLBACK — connect your message-send/encryption logic here."""
         print(f"[CALLBACK] on_send_message(message={message!r})")
-        on_send_message_socket(message)
+        self.rtc.on_send_message_sock(message)
 
 
     def on_attach(self):
@@ -296,15 +168,15 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         if getattr(self, "_settings_window", None) is None:
             Toast(self, "Connection details not yet configured", "error")
             return False
+        host = port =  remember = timeout = None
         try:
-            self.host = self._settings_window.host_entry.get().strip()
-            self.port  = self._settings_window.port_entry.get().strip()
-            self.remember = self._settings_window.reconnect_var.get()
-            self.timeout = self._settings_window.timeout_entry.get().strip()
-            self.connection = Network.validate(self.host,self.port,self.timeout,self.remember)
-            print(self.connection)
-            if self.connection:
-                return True
+            host = self._settings_window.host_entry.get().strip()
+            port  = int(self._settings_window.port_entry.get().strip())
+            remember = self._settings_window.reconnect_var.get()
+            timeout = self._settings_window.timeout_entry.get().strip()
+            self.connection = Network.validate(host,port,timeout,remember)
+            if self.connection and not self.rtc:
+                self.rtc = RtClient(host,port)
         
         except Exception as e:
             print(e)
