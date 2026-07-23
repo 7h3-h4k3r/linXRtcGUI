@@ -64,10 +64,20 @@ class MiddleWare:
 
         return packet_type, payload
 
+class routeR:
+
+    @staticmethod
+    def group_message_send(chatplace,handler,msg):
+        result = msg.split(":")
+        new_message = ' '.join(result[1:])
+        other_message=f"{result[0].strip()}\n{new_message.strip()}"
+        chatplace.add_message(handler,other_message)
 class recvMessage(threading.Thread):
-    def __init__(self,sock):
+    def __init__(self,sock,handler,chatplace):
         super().__init__()
         self.sock = sock 
+        self.handler = handler
+        self.chatplace = chatplace
     
     def run(self):
         print("Recving Message from the LinXRTC server recvMessage() Threading start\n")
@@ -78,8 +88,7 @@ class recvMessage(threading.Thread):
                 if packet_type == TYPE_GMSG:
                     length = payload[0]
                     msg = payload[1:1 + length].decode()
-                    print(msg)
-
+                    routeR.group_message_send(self.chatplace,self.handler,msg)
                 else:
                     print("Packet:", packet_type)
 
@@ -117,6 +126,10 @@ class RtClient:
             traceback.print_exc()
             self.sock.close()
 
+    def setRecv(self,handler,chat_frame):
+        recv_threading = recvMessage(self.sock,handler,chat_frame)
+        recv_threading.start()
+
     def start(self,username,password):
         self.sock = socket.socket()
         self.sock.connect((self.ip, self.port))
@@ -138,9 +151,6 @@ class RtClient:
         print(payload.decode())
         try:
             if packet_type == TYPE_LOGIN_OK:
-
-                recv_threading = recvMessage(self.sock)
-                recv_threading.start()
                 return True
                 
         except (BrokenPipeError, ConnectionResetError):
