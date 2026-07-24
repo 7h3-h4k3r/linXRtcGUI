@@ -8,11 +8,13 @@ import threading
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
 TYPE_GMSG = 3
+COUNT_CONN = 0x56
 HEADER_FMT = "!IBBBII"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
 
 MAGIC = 0x737269
 VERSION = 1
+
 
 class MiddleWare:
     @staticmethod
@@ -72,6 +74,8 @@ class routeR:
         new_message = ' '.join(result[1:])
         other_message=f"{result[0].strip()}\n{new_message.strip()}"
         chatplace.add_message(handler,other_message)
+
+
 class recvMessage(threading.Thread):
     def __init__(self,sock,handler,chatplace):
         super().__init__()
@@ -88,7 +92,12 @@ class recvMessage(threading.Thread):
                 if packet_type == TYPE_GMSG:
                     length = payload[0]
                     msg = payload[1:1 + length].decode()
-                    routeR.group_message_send(self.chatplace,self.handler,msg)
+                    routeR.group_message_send(self.chatplace.chat_area,self.handler,msg)
+                if packet_type == COUNT_CONN:
+                    self.chatplace.right_panel.update_info(
+                            connected_users=payload[0],
+                        )
+                    print("Connection Deails",payload)
                 else:
                     print("Packet:", packet_type)
 

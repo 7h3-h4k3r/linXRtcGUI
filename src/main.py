@@ -67,7 +67,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self.login_frame.pack_forget()
         if self.chat_frame is None:
             self.chat_frame = ChatFrame(self, self)
-            self.rtc.setRecv(self,self.chat_frame.chat_area)
+            self.rtc.setRecv(self,self.chat_frame)
         self.chat_frame.pack(fill="both", expand=True)
         self.chat_frame.sidebar.set_profile(username)
 
@@ -196,4 +196,5 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_exit(self):
         """PLACEHOLDER CALLBACK — connect your graceful-disconnect logic here."""
         print("[CALLBACK] on_exit()")
+        self.rtc.sock.close()
         self.destroy()
