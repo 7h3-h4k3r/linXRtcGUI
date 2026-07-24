@@ -11,7 +11,9 @@ TYPE_GMSG = 3
 COUNT_CONN = 0x56
 HEADER_FMT = "!IBBBII"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
-
+SET_LATANCY=0X59
+PING=0X57
+PONG=0x58
 MAGIC = 0x737269
 VERSION = 1
 
@@ -93,11 +95,17 @@ class recvMessage(threading.Thread):
                     length = payload[0]
                     msg = payload[1:1 + length].decode()
                     routeR.group_message_send(self.chatplace.chat_area,self.handler,msg)
-                if packet_type == COUNT_CONN:
+                elif packet_type == COUNT_CONN:
                     self.chatplace.right_panel.update_info(
                             connected_users=payload[0],
                         )
                     print("Connection Deails",payload)
+                elif packet_type == PING:
+                    print('i am send PONG admin')
+                    MiddleWare.send_packet(self.sock,PONG, b"")
+                elif packet_type == SET_LATANCY:
+                    
+                    print('i am getting latancyy' ,payload[0])
                 else:
                     print("Packet:", packet_type)
 
