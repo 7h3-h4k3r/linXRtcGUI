@@ -28,9 +28,9 @@ class ChatFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         body = ctk.CTkFrame(self, fg_color="transparent") if USING_CTK else tk.Frame(self, bg=Theme.BG)
         body.pack(fill="both", expand=True)
 
-        # left sidebar
-        self.sidebar = Sidebar(body, self.app)
-        self.sidebar.pack(side="left", fill="y")
+        # # left sidebar
+        # self.sidebar = Sidebar(body, self.app) 
+        # self.sidebar.pack(side="left", fill="y")
 
         # center column (top bar + chat area)
         center = ctk.CTkFrame(body, fg_color=Theme.BG) if USING_CTK else tk.Frame(body, bg=Theme.BG)

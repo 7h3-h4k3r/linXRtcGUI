@@ -17,6 +17,9 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
             super().__init__(master, bg=Theme.CARD, width=260, **kwargs)
         self.pack_propagate(False)
         self._build_ui()
+      
+        self.update_client_log('Your connection to the Lab now')
+        
 
     def _section_title(self, text):
         if USING_CTK:
@@ -54,12 +57,12 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
         self._info_row("Authentication", "auth_type_value")
         self._info_row("Connection Quality", "connection_quality_value")
 
-        self._section_title("CONNECTED USERS")
+        self._section_title("Client Logs")
         if USING_CTK:
-            self.connected_users_list = ctk.CTkScrollableFrame(self, fg_color="transparent")
+            self.client_logs = ctk.CTkScrollableFrame(self, fg_color="transparent")
         else:
-            self.connected_users_list = tk.Frame(self, bg=Theme.CARD)
-        self.connected_users_list.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+            self.client_logs = tk.Frame(self, bg=Theme.CARD)
+        self.client_logs.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
     def update_info(self, **kwargs):
         """Update any subset of: room_name, connected_users, latency,
@@ -76,3 +79,27 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
             widget_name = mapping.get(key)
             if widget_name and hasattr(self, widget_name):
                 getattr(self, widget_name).configure(text=str(value))
+
+    def update_client_log(self, msg, colour=None):
+        if colour is None:
+            colour = Theme.TEXT_PRIMARY
+
+        if USING_CTK:
+            ctk.CTkLabel(
+                self.client_logs,
+                text=msg,
+                anchor="w",
+                justify="left",
+                font=Theme.FONT_SMALL,
+                text_color=colour
+            ).pack(fill="x", padx=8, pady=2)
+        else:
+            tk.Label(
+                self.client_logs,
+                text=msg,
+                anchor="w",
+                justify="left",
+                bg=Theme.CARD,
+                fg=colour
+            ).pack(fill="x", padx=8, pady=2)
+        

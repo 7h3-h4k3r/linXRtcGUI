@@ -89,11 +89,11 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self.chat_frame.sidebar.user_list.populate(demo_users)
         self.chat_frame.sidebar.recent_chats.populate([])  # shows empty state
 
-        self.chat_frame.right_panel.update_info(
-            room_name="general", connected_users=len(demo_users),
-            latency="-- ms", encryption_mode="Pending backend",
-            auth_type=self.current_auth_method, connection_quality="Unknown",
-        )
+        # self.chat_frame.right_panel.update_info(
+        #     room_name="general", connected_users=len(demo_users),
+        #     latency="-- ms", encryption_mode="Pending backend",
+        #     auth_type=self.current_auth_method, connection_quality="Unknown",
+        # )
         self.chat_frame.status_bar.update_status(
             connection_state="offline", connection_text="Disconnected",
             socket_state="idle", ping="--", packet_count=0, protocol_version="v1.0",
@@ -118,7 +118,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
                 self.after(700, lambda: self._simulate_login_result(username))
         except Exception as e:
             self.rtc.sock.close()
-            Toast(self,str(e),"error")
+            Toast(self,'SERVER ERR:'+str(e),"error")
 
 
     def _simulate_login_result(self, username):
