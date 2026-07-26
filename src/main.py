@@ -69,11 +69,11 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
             self.chat_frame = ChatFrame(self, self)
             self.rtc.setRecv(self,self.chat_frame)
         self.chat_frame.pack(fill="both", expand=True)
-        self.chat_frame.sidebar.set_profile(username)
+        # self.chat_frame.sidebar.set_profile(username)
 
         # Populate with sample/demo GUI data only — replace with real data
         # from your backend once connected.
-        self._load_demo_state()
+        # self._load_demo_state()
 
     def _load_demo_state(self):
         """Fills the UI with placeholder demo data purely for visual preview."""

@@ -3,7 +3,7 @@ import zlib
 import socket
 import struct
 import threading
-
+import time
 
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
@@ -11,7 +11,7 @@ TYPE_GMSG = 3
 COUNT_CONN = 0x56
 HEADER_FMT = "!IBBBII"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
-SET_LATANCY=0X59
+
 PING=0X57
 PONG=0x58
 MAGIC = 0x737269
@@ -78,16 +78,46 @@ class routeR:
         chatplace.add_message(handler,other_message)
 
 
+class Latency(threading.Thread):
+
+    def __init__(self, sock):
+        super().__init__()
+        self.sock = sock
+        self.running = True
+        self.last_ping = 0.0
+
+
+    def run(self):
+        while self.running:
+            print('i am sending the ping')
+            self.last_ping = time.monotonic()
+
+            MiddleWare.send_packet(
+                self.sock,
+                PING,
+                b""
+            )
+
+            time.sleep(10)
+    def stop(self):
+        self.running = False
+        self.thread.join()
+
+
+
 class recvMessage(threading.Thread):
-    def __init__(self,sock,handler,chatplace):
+    def __init__(self,sock,handler,chatplace,latency):
         super().__init__()
         self.sock = sock 
+        self.running = True
         self.handler = handler
         self.chatplace = chatplace
+        self.latency = latency
+        
     
     def run(self):
         print("Recving Message from the LinXRTC server recvMessage() Threading start\n")
-        while True:
+        while self.running:
             try:
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
 
@@ -100,18 +130,27 @@ class recvMessage(threading.Thread):
                             connected_users=payload[0],
                         )
                     print("Connection Deails",payload)
-                elif packet_type == PING:
-                    print('i am send PONG admin')
-                    MiddleWare.send_packet(self.sock,PONG, b"")
-                elif packet_type == SET_LATANCY:
-                    
-                    print('i am getting latancyy' ,payload[0])
+                elif packet_type == PONG:
+                    latency_is = (time.monotonic() - self.latency.last_ping) * 1000
+
+                    print(f"Latacny :{latency_is:.2f} ms")
+
+                    self.chatplace.right_panel.update_info(
+                        latency=f"{latency_is:.2f} ms"
+                    )
+               
                 else:
                     print("Packet:", packet_type)
 
             except Exception as e:
                 print("Disconnected:", e)
-                break   
+                break 
+        
+
+    def stop(self):
+        self.running = False
+        self.thread.join()
+  
     
 class RtClient:
     
@@ -144,7 +183,9 @@ class RtClient:
             self.sock.close()
 
     def setRecv(self,handler,chat_frame):
-        recv_threading = recvMessage(self.sock,handler,chat_frame)
+        latency = Latency(self.sock)
+        recv_threading = recvMessage(self.sock,handler,chat_frame,latency)
+        latency.start()
         recv_threading.start()
 
     def start(self,username,password):
