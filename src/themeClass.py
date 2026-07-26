@@ -10,6 +10,13 @@ class Theme:
     TEXT_SECONDARY = "#A0A0A0"
     TEXT_MUTED = "#6E6E6E"
 
+    GREEN = "#22C55E"
+    RED   = "#EF4444"
+    BLUE  = "#3B82F6"
+    YELLOW = "#FACC15"
+    ORANGE = "#F97316"
+
+
     SUCCESS = "#3BD671"
     WARNING = "#F5B841"
     ERROR = "#F45B69"

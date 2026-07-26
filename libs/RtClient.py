@@ -4,7 +4,7 @@ import socket
 import struct
 import threading
 import time
-
+from src.themeClass import Theme
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
 TYPE_GMSG = 3
@@ -77,6 +77,26 @@ class routeR:
         other_message=f"{result[0].strip()}\n{new_message.strip()}"
         chatplace.add_message(handler,other_message)
 
+    @staticmethod
+    def set_latency(latency ,right_panel):
+
+        value= None
+        
+        if latency <= 50:
+            value=("Excellent", Theme.GREEN)
+        elif latency <= 100:
+            value=("Good", Theme.ORANGE)
+        elif latency <= 200:
+            value=("Fair", Theme.YELLOW)
+        elif latency <= 300:
+            value=("Poor", Theme.BULE)
+        else:
+            value=("Very Poor",Theme.RED)
+
+        right_panel.update_info(
+            connection_quality=(value[0], value[1])
+        )
+
 
 class Latency(threading.Thread):
 
@@ -138,6 +158,7 @@ class recvMessage(threading.Thread):
                     self.chatplace.right_panel.update_info(
                         latency=f"{latency_is:.2f} ms"
                     )
+                    routeR.set_latency(latency_is,self.chatplace.right_panel)
                
                 else:
                     print("Packet:", packet_type)

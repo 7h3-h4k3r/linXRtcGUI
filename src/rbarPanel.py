@@ -75,10 +75,22 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
             "auth_type": "auth_type_value",
             "connection_quality": "connection_quality_value",
         }
+        
         for key, value in kwargs.items():
             widget_name = mapping.get(key)
-            if widget_name and hasattr(self, widget_name):
-                getattr(self, widget_name).configure(text=str(value))
+            if not widget_name or not hasattr(self, widget_name):
+                continue
+
+            widget = getattr(self, widget_name)
+
+            if isinstance(value, tuple):
+                text, colour = value
+                if USING_CTK:
+                    widget.configure(text=str(text), text_color=colour)
+                else:
+                    widget.configure(text=str(text), fg=colour)
+            else:
+                widget.configure(text=str(value))
 
     def update_client_log(self, msg, colour=None):
         if colour is None:
