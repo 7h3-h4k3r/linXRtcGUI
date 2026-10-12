@@ -173,6 +173,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         try:
             host = self._settings_window.host_entry.get().strip()
             port  = int(self._settings_window.port_entry.get().strip())
+         
             remember = self._settings_window.reconnect_var.get()
             timeout = self._settings_window.timeout_entry.get().strip()
             self.connection = Network.validate(host,port,timeout,remember)
@@ -180,7 +181,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
                 self.rtc = RtClient(host,port)
         
         except Exception as e:
-            print(e)
+            print("yes i am " + str(e))
             Toast(self, str(e),"error", duration_ms=3000)
         
 
@@ -196,5 +197,6 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_exit(self):
         """PLACEHOLDER CALLBACK — connect your graceful-disconnect logic here."""
         print("[CALLBACK] on_exit()")
-        self.rtc.sock.close()
+        if self.rtc is not None and self.rtc.sock is not None:
+            self.rtc.sock.close()
         self.destroy()

@@ -5,6 +5,10 @@ import struct
 import threading
 import time
 from src.themeClass import Theme
+
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
 TYPE_GMSG = 3
@@ -16,7 +20,7 @@ PING=0X57
 PONG=0x58
 MAGIC = 0x737269
 VERSION = 1
-
+SHARE_GROUP_KEY=0x60
 
 class MiddleWare:
     @staticmethod
@@ -179,14 +183,40 @@ class RtClient:
         self.ip = ip 
         self.port = port 
         self.sock = None
-   
-              
+        self.my_priv_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.my_pub_pem = self.my_priv_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode()
+        self.my_sender_key = AESGCM.generate_key(bit_length=256)
+        self.peer_public_key = {}
+        self.peer_group_key = {}
+
+    def send_key_to(self,target_user,rsa_pub):
+        enc_key = rsa_pub.encrypt(
+            self.my_sender_key,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+
+        base_64 = base64.b64encode(enc_key)
+        payload = (
+            struct.pack("!B", len(base64)) +
+            base64 +
+            struct.pack("!B", len(target_user.encode()))+
+            target_user.encode()
+        )
+
+        MiddleWare.send_packet(self.sock,SHARE_GROUP_KEY,payload)
+
+    
+
     def on_send_message_sock(self,msg):
         try:
             
             payload = (
                 struct.pack("!B", len(msg.encode())) +
                 msg.encode()
+    
             )
 
             MiddleWare.send_packet(self.sock, TYPE_GMSG, payload)
@@ -212,15 +242,18 @@ class RtClient:
     def start(self,username,password):
         self.sock = socket.socket()
         self.sock.connect((self.ip, self.port))
-
+        print(self.my_pub_pem)
         username = username.encode()
         password = password.encode()
+        public_key = self.my_pub_pem.encode()
 
         payload = (
             struct.pack("!B", len(username)) +
             username +
             struct.pack("!B", len(password)) +
-            password
+            password +
+            struct.pack("!H" ,len(public_key)) +
+            public_key
         )
 
         MiddleWare.send_packet(self.sock, TYPE_LOGIN, payload)
