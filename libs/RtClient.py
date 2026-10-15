@@ -4,8 +4,9 @@ import socket
 import struct
 import threading
 import time
+from os import urandom
 from src.themeClass import Theme
-
+from . import peer_group_key ,peer_public_key , my_sender_key
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -21,6 +22,11 @@ PONG=0x58
 MAGIC = 0x737269
 VERSION = 1
 SHARE_GROUP_KEY=0x60
+
+U_JOIN=0x61
+I_KEYS=0x62
+
+
 
 class MiddleWare:
     @staticmethod
@@ -93,7 +99,7 @@ class routeR:
         elif latency <= 200:
             value=("Fair", Theme.YELLOW)
         elif latency <= 300:
-            value=("Poor", Theme.BULE)
+            value=("Poor", Theme.BLUE)
         else:
             value=("Very Poor",Theme.RED)
 
@@ -130,14 +136,80 @@ class Latency(threading.Thread):
 
 
 class recvMessage(threading.Thread):
-    def __init__(self,sock,handler,chatplace,latency):
+    def __init__(self,sock,handler,chatplace,latency,aesgcm):
         super().__init__()
         self.sock = sock 
         self.running = True
         self.handler = handler
         self.chatplace = chatplace
         self.latency = latency
+        self.aesgcm = aesgcm
+    
+
+    def send_key_to(self,target_user,rsa_pub):
+        enc_key = rsa_pub.encrypt(
+            my_sender_key,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+        print('I AM SENDING MY SHARE KEY',my_sender_key)
+        payload = (
+            
+            struct.pack("!B", len(target_user.encode()))+
+            target_user.encode() + 
+            struct.pack("!H", len(enc_key)) +
+            enc_key 
+            
+        )
+
+        MiddleWare.send_packet(self.sock,SHARE_GROUP_KEY,payload)
+
+    def receive_group_message(self,payload):
+
+        if len(payload) < 30:
+            raise ValueError("Invalid broadcast payload")
+
+        # Read username length.
+        username_len = struct.unpack("!H", payload[:2])[0]
+        offset = 2
+
+        if offset + username_len + 28 > len(payload):
+            raise ValueError("Incomplete broadcast payload")
+
+        # Read username.
+        username = payload[offset:offset + username_len].decode("utf-8")
+        offset += username_len
+
+        # Read nonce.
+        nonce = payload[offset:offset + 12]
+        offset += 12
+
+        # Read ciphertext and authentication tag.
+        ciphertext = payload[offset:]
+
+        # Decrypt and authenticate.
         
+
+        plaintext = self.aesgcm.decrypt(
+            nonce,
+            ciphertext,
+            None
+        )
+
+        message = plaintext.decode("utf-8")
+
+        print(f"{username}: {message}")
+
+        return username +' : '+ {message}
+
+    def get_user_and_pubkey(self,payload):
+        name_len = int.from_bytes(payload[:2],byteorder="big")
+        offset = 2 
+
+        username = payload[offset : offset + name_len].decode()
+
+        public_key = payload[offset + name_len:].decode()
+
+        return username,public_key
     
     def run(self):
         print("Recving Message from the LinXRTC server recvMessage() Threading start\n")
@@ -146,9 +218,20 @@ class recvMessage(threading.Thread):
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
 
                 if packet_type == TYPE_GMSG:
-                    length = payload[0]
-                    msg = payload[1:1 + length].decode()
+                    print("Yes iam here new message")
+                    msg = self.receive_group_message(payload)
+                    print(msg)
                     routeR.group_message_send(self.chatplace.chat_area,self.handler,msg)
+                elif packet_type == U_JOIN:
+                    print('new user joined bro lets see our who he are ')
+                    username , pubkey = self.get_user_and_pubkey(payload)
+                    print(username,pubkey)
+                    rsa_pub = serialization.load_pem_public_key(pubkey.encode())
+                    peer_public_key[username] = rsa_pub
+                    self.send_key_to(username,rsa_pub)
+                    
+                elif packet_type == I_KEYS:
+                    print("i get all client keys\n")
                 elif packet_type == COUNT_CONN:
                     self.chatplace.right_panel.update_info(
                             connected_users=payload[0],
@@ -188,36 +271,25 @@ class RtClient:
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         ).decode()
-        self.my_sender_key = AESGCM.generate_key(bit_length=256)
-        self.peer_public_key = {}
-        self.peer_group_key = {}
+        
+        global my_sender_key 
+        my_sender_key = AESGCM.generate_key(bit_length=256)
+       
+        self.aesgcm = AESGCM(my_sender_key)
 
-    def send_key_to(self,target_user,rsa_pub):
-        enc_key = rsa_pub.encrypt(
-            self.my_sender_key,
-            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        )
-
-        base_64 = base64.b64encode(enc_key)
-        payload = (
-            struct.pack("!B", len(base64)) +
-            base64 +
-            struct.pack("!B", len(target_user.encode()))+
-            target_user.encode()
-        )
-
-        MiddleWare.send_packet(self.sock,SHARE_GROUP_KEY,payload)
+    
 
     
 
     def on_send_message_sock(self,msg):
+
+       
+        nonce = urandom(12)
+
+        ciphertext = self.aesgcm.encrypt(nonce,msg.encode(),None)
         try:
             
-            payload = (
-                struct.pack("!B", len(msg.encode())) +
-                msg.encode()
-    
-            )
+            payload = nonce + ciphertext
 
             MiddleWare.send_packet(self.sock, TYPE_GMSG, payload)
                     
@@ -235,10 +307,10 @@ class RtClient:
 
     def setRecv(self,handler,chat_frame):
         latency = Latency(self.sock)
-        recv_threading = recvMessage(self.sock,handler,chat_frame,latency)
+        recv_threading = recvMessage(self.sock,handler,chat_frame,latency,self.aesgcm)
         latency.start()
         recv_threading.start()
-
+    
     def start(self,username,password):
         self.sock = socket.socket()
         self.sock.connect((self.ip, self.port))

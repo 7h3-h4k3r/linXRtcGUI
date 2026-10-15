@@ -116,7 +116,10 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             if username == 'admin' and password == 'pass@123':
                 self.app.on_login(username, password)
             
-            elif username == 'dharani' and password == 'pain@123':
+            elif username == 'nimki' and password == 'pass@123':
+                self.app.on_login(username,password)
+
+            elif username == 'da' and password == '1234':
                 self.app.on_login(username,password)
             else:
                 Toast(self, "invalid credentials","warning", duration_ms=3000)

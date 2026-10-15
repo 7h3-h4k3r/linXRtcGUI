@@ -116,6 +116,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
                 Toast(self,"cOzy Place for Hacker's")
                 self.login_frame.set_status("Authenticating...", "info")
                 self.after(700, lambda: self._simulate_login_result(username))
+                
         except Exception as e:
             self.rtc.sock.close()
             Toast(self,'SERVER ERR:'+str(e),"error")
