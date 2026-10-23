@@ -4,12 +4,14 @@ import socket
 import struct
 import threading
 import time
+import json
 from os import urandom
 from src.themeClass import Theme
 from . import peer_group_key ,peer_public_key , my_sender_key
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.exceptions import InvalidTag
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
 TYPE_GMSG = 3
@@ -22,6 +24,7 @@ PONG=0x58
 MAGIC = 0x737269
 VERSION = 1
 SHARE_GROUP_KEY=0x60
+RECV_GROUP_KEY=0x63
 
 U_JOIN=0x61
 I_KEYS=0x62
@@ -136,7 +139,7 @@ class Latency(threading.Thread):
 
 
 class recvMessage(threading.Thread):
-    def __init__(self,sock,handler,chatplace,latency,aesgcm):
+    def __init__(self,sock,handler,chatplace,latency,aesgcm,pri_key,username):
         super().__init__()
         self.sock = sock 
         self.running = True
@@ -144,6 +147,8 @@ class recvMessage(threading.Thread):
         self.chatplace = chatplace
         self.latency = latency
         self.aesgcm = aesgcm
+        self.pri_key = pri_key
+        self.username = username
     
 
     def send_key_to(self,target_user,rsa_pub):
@@ -163,43 +168,63 @@ class recvMessage(threading.Thread):
 
         MiddleWare.send_packet(self.sock,SHARE_GROUP_KEY,payload)
 
-    def receive_group_message(self,payload):
+    
+    def unpack_shared_key(self,payload: bytes):
+        # Header: version (1), sender_len (1), key_len (2) -> 4 bytes
+        version, sender_len, key_len = struct.unpack_from("!BBH", payload, 0)
+        
+        sender_start = 4
+        sender_end = sender_start + sender_len
+        sender_username = payload[sender_start:sender_end].decode("utf-8")
+        
+        key_start = sender_end
+        key_end = key_start + key_len
+        enc_key = payload[key_start:key_end]
+        
+        return sender_username, enc_key
 
-        if len(payload) < 30:
-            raise ValueError("Invalid broadcast payload")
 
-        # Read username length.
+    def receive_group_message(self, payload):
+        # Minimum size: 2 (username_len) + at least 1 (username) + 12 (nonce) + 16 (AES-GCM tag) = 31 bytes
+        if len(payload) < 31:
+            raise ValueError("Invalid broadcast payload: too short")
+
+        # 1. Read username length
         username_len = struct.unpack("!H", payload[:2])[0]
         offset = 2
 
+        # 12 bytes nonce + 16 bytes min tag = 28 bytes minimum crypto overhead
         if offset + username_len + 28 > len(payload):
-            raise ValueError("Incomplete broadcast payload")
+            raise ValueError("Incomplete broadcast payload: truncated username or ciphertext")
 
-        # Read username.
+        # 2. Read username
         username = payload[offset:offset + username_len].decode("utf-8")
         offset += username_len
 
-        # Read nonce.
+        # 3. Read nonce (12 bytes)
         nonce = payload[offset:offset + 12]
         offset += 12
 
-        # Read ciphertext and authentication tag.
+        # 4. Read ciphertext + tag
         ciphertext = payload[offset:]
 
-        # Decrypt and authenticate.
-        
+        # 5. Look up the sender's shared key
+        # (If using peer-to-peer shared keys, fallback to self.aesgcm if sender is self)
+        if username == self.username:
+            aes = self.aesgcm
+        elif username in peer_group_key:
+            aes = AESGCM(peer_group_key[username])
+        else:
+            raise KeyError(f"Missing decryption key for user: {username}")
 
-        plaintext = self.aesgcm.decrypt(
-            nonce,
-            ciphertext,
-            None
-        )
-
-        message = plaintext.decode("utf-8")
-
-        print(f"{username}: {message}")
-
-        return username +' : '+ {message}
+        # 6. Decrypt and authenticate
+        try:
+            plaintext = aes.decrypt(nonce, ciphertext, None)
+            message = plaintext.decode("utf-8")
+            print(f"{username}: {message}")
+            return f"{username} : {message}"
+        except InvalidTag:
+            raise ValueError(f"Authentication failed: invalid tag from {username}")
 
     def get_user_and_pubkey(self,payload):
         name_len = int.from_bytes(payload[:2],byteorder="big")
@@ -218,10 +243,12 @@ class recvMessage(threading.Thread):
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
 
                 if packet_type == TYPE_GMSG:
-                    print("Yes iam here new message")
-                    msg = self.receive_group_message(payload)
-                    print(msg)
-                    routeR.group_message_send(self.chatplace.chat_area,self.handler,msg)
+                    try:
+                        msg = self.receive_group_message(payload)
+                        if msg:
+                            routeR.group_message_send(self.chatplace.chat_area, self.handler, msg)
+                    except Exception as err:
+                        print(f"Error handling TYPE_GMSG: {err}")
                 elif packet_type == U_JOIN:
                     print('new user joined bro lets see our who he are ')
                     username , pubkey = self.get_user_and_pubkey(payload)
@@ -229,9 +256,31 @@ class recvMessage(threading.Thread):
                     rsa_pub = serialization.load_pem_public_key(pubkey.encode())
                     peer_public_key[username] = rsa_pub
                     self.send_key_to(username,rsa_pub)
+                elif packet_type == RECV_GROUP_KEY:
+                    sender_username, enc_key = self.unpack_shared_key(payload)
+                    print(f"Received shared key from {sender_username} (Length: {len(enc_key)} bytes)")
                     
+                    # Decrypt with your private RSA key
+                    decrypted_key = self.pri_key.decrypt(
+                        enc_key,
+                        padding.OAEP(
+                            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                            algorithm=hashes.SHA256(),
+                            label=None
+                        )
+                    )
+                    peer_group_key[sender_username] = decrypted_key
                 elif packet_type == I_KEYS:
-                    print("i get all client keys\n")
+                    data = json.loads(payload.decode("utf-8"))
+                    received_keys = data["keys"]
+                    print("Received public keys:", received_keys)
+
+                    for user , pem in data['keys'].items():
+                        if user != self.username:
+                            rsa_pub = serialization.load_pem_public_key(pem.encode())
+                            peer_public_key[user] = rsa_pub
+                            self.send_key_to(user,rsa_pub)
+                    print('successfully send the my shared keys')
                 elif packet_type == COUNT_CONN:
                     self.chatplace.right_panel.update_info(
                             connected_users=payload[0],
@@ -271,6 +320,8 @@ class RtClient:
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         ).decode()
+
+        print('MY Pub Key ',self.my_pub_pem)
         
         global my_sender_key 
         my_sender_key = AESGCM.generate_key(bit_length=256)
@@ -305,9 +356,9 @@ class RtClient:
             traceback.print_exc()
             self.sock.close()
 
-    def setRecv(self,handler,chat_frame):
+    def setRecv(self,handler,chat_frame,username):
         latency = Latency(self.sock)
-        recv_threading = recvMessage(self.sock,handler,chat_frame,latency,self.aesgcm)
+        recv_threading = recvMessage(self.sock,handler,chat_frame,latency,self.aesgcm,self.my_priv_key,username)
         latency.start()
         recv_threading.start()
     
