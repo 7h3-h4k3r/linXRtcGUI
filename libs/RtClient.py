@@ -238,17 +238,25 @@ class recvMessage(threading.Thread):
     
     def run(self):
         print("Recving Message from the LinXRTC server recvMessage() Threading start\n")
+        self.chatplace.right_panel.update_info(
+            encryption_mode='EndToEnd Encryption',
+            auth_type='SIGNUP AND LOGIN'
+        )
         while self.running:
             try:
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
 
                 if packet_type == TYPE_GMSG:
+
                     try:
                         msg = self.receive_group_message(payload)
                         if msg:
                             routeR.group_message_send(self.chatplace.chat_area, self.handler, msg)
                     except Exception as err:
                         print(f"Error handling TYPE_GMSG: {err}")
+                    
+                    self.chatplace.right_panel.update_client_log(f"We recv Message ",Theme.YELLOW)
+                  
                 elif packet_type == U_JOIN:
                     print('new user joined bro lets see our who he are ')
                     username , pubkey = self.get_user_and_pubkey(payload)
@@ -256,9 +264,10 @@ class recvMessage(threading.Thread):
                     rsa_pub = serialization.load_pem_public_key(pubkey.encode())
                     peer_public_key[username] = rsa_pub
                     self.send_key_to(username,rsa_pub)
+                    self.chatplace.right_panel.update_client_log(username+' Joined',Theme.GREEN)
                 elif packet_type == RECV_GROUP_KEY:
                     sender_username, enc_key = self.unpack_shared_key(payload)
-                    print(f"Received shared key from {sender_username} (Length: {len(enc_key)} bytes)")
+                    self.chatplace.right_panel.update_client_log(f"Received shared key from {sender_username}")
                     
                     # Decrypt with your private RSA key
                     decrypted_key = self.pri_key.decrypt(
@@ -273,14 +282,16 @@ class recvMessage(threading.Thread):
                 elif packet_type == I_KEYS:
                     data = json.loads(payload.decode("utf-8"))
                     received_keys = data["keys"]
-                    print("Received public keys:", received_keys)
+                    self.chatplace.right_panel.update_client_log(f"Recv all pubkeys",Theme.BLUE)
+                  
 
                     for user , pem in data['keys'].items():
                         if user != self.username:
                             rsa_pub = serialization.load_pem_public_key(pem.encode())
                             peer_public_key[user] = rsa_pub
                             self.send_key_to(user,rsa_pub)
-                    print('successfully send the my shared keys')
+                    self.chatplace.right_panel.update_client_log(f"SenderKey shared",Theme.BLUE)
+                  
                 elif packet_type == COUNT_CONN:
                     self.chatplace.right_panel.update_info(
                             connected_users=payload[0],

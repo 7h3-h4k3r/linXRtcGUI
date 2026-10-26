@@ -11,6 +11,7 @@ from .loginFrame import LoginFrame
 from .chatFrame import ChatFrame    
 from .settingsWindow import SettingsWindow
 from .toastClass import Toast
+from .signupClass import RegFrame
 from libs.network import Network
 from libs.RtClient import RtClient
   
@@ -35,7 +36,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self.rtc = None
         self.connection =None
     
-        self.title("Secure Chat Client")
+        self.title("Real Time E2E chat Application")
         self.geometry(Theme.WINDOW_SIZE)
         self.minsize(*Theme.MIN_SIZE)
         if USING_CTK:
@@ -49,10 +50,11 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self.current_auth_method = "Password"
         self._settings_window = None
 
-        self.login_frame = LoginFrame(self, self)
+        
         self.chat_frame = None  # built lazily after login
 
-        self.login_frame.pack(fill="both", expand=True)
+        self.signup_frame = RegFrame(self,self)
+        self.signup_frame.pack(fill="both",expand=True)
 
     # ------------------------------------------------------------------
     # NAVIGATION
@@ -63,6 +65,12 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self.login_frame.pack(fill="both", expand=True)
         self.login_frame.set_status("Disconnected", "muted")
 
+    def show_reg_screen(self):
+        if self.chat_frame is not None:
+            self.chat_frame.pack_forget()
+        self.signup_frame.pack(fill="both", expand=True)
+        self.signup_frame.set_status("Disconnected", "muted")
+        
     def show_chat_screen(self, username: str = "User"):
         self.login_frame.pack_forget()
         if self.chat_frame is None:

@@ -7,6 +7,7 @@ except ImportError:
     USING_CTK = False
 from .themeClass import Theme
 from .toastClass import Toast
+# from .signupClass import RegFrame
 class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     """Centered login card shown before the user authenticates."""
 
@@ -135,3 +136,5 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     def _handle_forgot_password(self):
         # Placeholder only — no recovery logic implemented here.
         print("[GUI] Forgot password clicked (placeholder, no backend logic).")
+        self.signup_frame = RegFrame(self,self)
+        self.signup_frame.pack(fill="both",expand=True)

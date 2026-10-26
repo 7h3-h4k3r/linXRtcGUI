@@ -56,7 +56,7 @@ class ChatFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             top_bar.pack(fill="x")
             top_bar.pack_propagate(False)
 
-            self.room_label = ctk.CTkLabel(top_bar, text="# general", font=Theme.FONT_BOLD,
+            self.room_label = ctk.CTkLabel(top_bar, text="linxRTC", font=Theme.FONT_BOLD,
                                             text_color=Theme.TEXT_PRIMARY)
             self.room_label.pack(side="left", padx=16)
 
