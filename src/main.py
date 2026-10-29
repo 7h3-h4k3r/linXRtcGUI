@@ -11,6 +11,7 @@ from .loginFrame import LoginFrame
 from .chatFrame import ChatFrame    
 from .settingsWindow import SettingsWindow
 from .toastClass import Toast
+from .loginFrame import LoginFrame
 from .signupClass import RegFrame
 from libs.network import Network
 from libs.RtClient import RtClient
@@ -52,10 +53,23 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
 
         
         self.chat_frame = None  # built lazily after login
+        self.frames = {}
 
-        self.signup_frame = RegFrame(self,self)
-        self.signup_frame.pack(fill="both",expand=True)
+        # Instantiate both screens once and stack them
+        for F in (LoginFrame, RegFrame):
+            frame = F(master=self, app=self)
+            self.frames[F] = frame
+           
 
+        self.show_frame(LoginFrame)
+
+    
+        
+    def show_frame(self, frame_class):
+        for f in self.frames.values():
+            f.pack_forget()
+        frame = self.frames[frame_class]
+        frame.pack(fill="both", expand=True)  
     # ------------------------------------------------------------------
     # NAVIGATION
     # ------------------------------------------------------------------

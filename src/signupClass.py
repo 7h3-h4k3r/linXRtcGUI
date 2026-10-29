@@ -141,7 +141,5 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     def _handle_forgot_password(self):
         # Placeholder only — no recovery logic implemented here.
         print("[GUI] Forgot password clicked (placeholder, no backend logic).")
-        self.login_frame = LoginFrame(self, self)
-        self.chat_frame = None  # built lazily after login
-
-        self.login_frame.pack(fill="both", expand=True)
+        from .loginFrame import LoginFrame  # Local import inside the callback
+        self.app.show_frame(LoginFrame)

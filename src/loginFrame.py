@@ -20,6 +20,7 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         self.app = app
         self._password_visible = False
         self._build_ui()
+        
 
     def _build_ui(self):
         # Centering wrapper
@@ -128,13 +129,12 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             Toast(self, "Host configuration error","warning", duration_ms=3000)   
 
     def _handle_settings(self):
-        self.app.on_open_settings()  # PLACEHOLDER CALLBACK
+        self.app.on_open_settings()  
 
     def _handle_exit(self):
-        self.app.on_exit()  # PLACEHOLDER CALLBACK
+        self.app.on_exit()  
 
     def _handle_forgot_password(self):
-        # Placeholder only — no recovery logic implemented here.
         print("[GUI] Forgot password clicked (placeholder, no backend logic).")
-        self.signup_frame = RegFrame(self,self)
-        self.signup_frame.pack(fill="both",expand=True)
+        from .signupClass import RegFrame  # Local import prevents startup circular loop
+        self.app.show_frame(RegFrame)

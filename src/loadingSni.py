@@ -12,6 +12,7 @@ class LoadingSpinner(ctk.CTkLabel if USING_CTK else tk.Label):
             super().__init__(master, text=self.FRAMES[0], fg=Theme.ACCENT, bg=Theme.CARD, **kwargs)
         self._running = False
         self._frame_index = 0
+        
 
     def start(self):
         self._running = True
