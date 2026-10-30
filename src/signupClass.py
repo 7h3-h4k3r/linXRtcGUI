@@ -32,6 +32,7 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         card.pack_propagate(False)
 
         if USING_CTK:
+            print("SIGNUP CLASS RENDER")
             ctk.CTkLabel(card, text="🔒 Secure Chat", font=Theme.FONT_TITLE,
                          text_color=Theme.TEXT_PRIMARY).pack(pady=(34, 4))
             ctk.CTkLabel(card, text="Sign in to continue", font=Theme.FONT_SUBTITLE,
@@ -60,7 +61,7 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
                              text_color=Theme.TEXT_SECONDARY, font=Theme.FONT_SMALL,
                              fg_color=Theme.ACCENT).pack(pady=(14, 4), anchor="w", padx=50)
 
-            self.login_btn = ctk.CTkButton(card, text="Login", width=280, fg_color=Theme.ACCENT,
+            self.login_btn = ctk.CTkButton(card, text="Signup", width=280, fg_color=Theme.ACCENT,
                                             hover_color=Theme.ACCENT_HOVER, font=Theme.FONT_BOLD,
                                             command=self._handle_login)
             self.login_btn.pack(pady=(16, 8))
@@ -69,13 +70,13 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             btn_row.pack(pady=4)
             ctk.CTkButton(btn_row, text="Settings", width=132, fg_color=Theme.CARD_LIGHT,
                           hover_color=Theme.CARD, command=self._handle_settings).pack(side="left", padx=4)
-            ctk.CTkButton(btn_row, text="Exit", width=132, fg_color=Theme.CARD_LIGHT,
-                          hover_color=Theme.ERROR, command=self._handle_exit).pack(side="left", padx=4)
+            ctk.CTkButton(btn_row, text="Login", width=132, fg_color=Theme.CARD_LIGHT,
+                          hover_color=Theme.ERROR, command=self._handle_login_).pack(side="left", padx=4)
 
-            forgot = ctk.CTkLabel(card, text="Forgot Password?", font=Theme.FONT_SMALL,
+            forgot = ctk.CTkLabel(card, text="Exit 🪪", font=Theme.FONT_SMALL,
                                    text_color=Theme.ACCENT, cursor="hand2")
             forgot.pack(pady=(14, 0))
-            forgot.bind("<Button-1>", lambda e: self._handle_forgot_password())
+            forgot.bind("<Button-1>", lambda e: self._handle_exit())
 
             self.status_label = ctk.CTkLabel(card, text="Disconnected", font=Theme.FONT_SMALL,
                                               text_color=Theme.TEXT_MUTED)
@@ -117,18 +118,11 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         if self.app.connection:
             username = self.username_entry.get().strip()
             password = self.password_entry.get()
+            email = self.email_entry.get().strip()
+
+            if not username or not password or not email:
+                Toast(self,'User Credentials Missing ',"warning", duration_ms=3000)
             self.set_status("Connecting...", "info")
-
-            if username == 'admin' and password == 'pass@123':
-                self.app.on_login(username, password)
-            
-            elif username == 'nimki' and password == 'pass@123':
-                self.app.on_login(username,password)
-
-            elif username == 'da' and password == '1234':
-                self.app.on_login(username,password)
-            else:
-                Toast(self, "invalid credentials","warning", duration_ms=3000)
         else:
             Toast(self, "Host configuration error","warning", duration_ms=3000)   
 
@@ -138,8 +132,8 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     def _handle_exit(self):
         self.app.on_exit()  # PLACEHOLDER CALLBACK
 
-    def _handle_forgot_password(self):
+    def _handle_login_(self):
         # Placeholder only — no recovery logic implemented here.
-        print("[GUI] Forgot password clicked (placeholder, no backend logic).")
+        print("[GUI] LOGIN PAGE Render.")
         from .loginFrame import LoginFrame  # Local import inside the callback
         self.app.show_frame(LoginFrame)

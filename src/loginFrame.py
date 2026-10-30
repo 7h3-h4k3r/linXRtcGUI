@@ -65,13 +65,13 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             btn_row.pack(pady=4)
             ctk.CTkButton(btn_row, text="Settings", width=132, fg_color=Theme.CARD_LIGHT,
                           hover_color=Theme.CARD, command=self._handle_settings).pack(side="left", padx=4)
-            ctk.CTkButton(btn_row, text="Exit", width=132, fg_color=Theme.CARD_LIGHT,
-                          hover_color=Theme.ERROR, command=self._handle_exit).pack(side="left", padx=4)
+            ctk.CTkButton(btn_row, text="Signup", width=132, fg_color=Theme.CARD_LIGHT,
+                          hover_color=Theme.ERROR, command=self._handle_signup_).pack(side="left", padx=4)
 
-            forgot = ctk.CTkLabel(card, text="Forgot Password?", font=Theme.FONT_SMALL,
+            forgot = ctk.CTkLabel(card, text="Exit 🪪", font=Theme.FONT_SMALL,
                                    text_color=Theme.ACCENT, cursor="hand2")
-            forgot.pack(pady=(14, 0))
-            forgot.bind("<Button-1>", lambda e: self._handle_forgot_password())
+            forgot.pack(pady=(14, 5))
+            forgot.bind("<Button-1>", lambda e: self._handle_exit())
 
             self.status_label = ctk.CTkLabel(card, text="Disconnected", font=Theme.FONT_SMALL,
                                               text_color=Theme.TEXT_MUTED)
@@ -89,7 +89,7 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             self.login_btn = tk.Button(card, text="Login", command=self._handle_login)
             self.login_btn.pack(pady=8)
             tk.Button(card, text="Settings", command=self._handle_settings).pack(pady=2)
-            tk.Button(card, text="Exit", command=self._handle_exit).pack(pady=2)
+            tk.Button(card, text="Singup", command=self._handle_signup_).pack(pady=2)
             self.status_label = tk.Label(card, text="Disconnected", fg=Theme.TEXT_MUTED, bg=Theme.CARD)
             self.status_label.pack(side="bottom", pady=16)
 
@@ -107,7 +107,6 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         self.status_label.configure(text=text, text_color=color_map.get(kind, Theme.TEXT_MUTED)) \
             if USING_CTK else self.status_label.configure(text=text, fg=color_map.get(kind, Theme.TEXT_MUTED))
 
-    # -- placeholder-callback wrappers ----------------------------------
     def _handle_login(self):
         
         if self.app.connection:
@@ -134,7 +133,7 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     def _handle_exit(self):
         self.app.on_exit()  
 
-    def _handle_forgot_password(self):
-        print("[GUI] Forgot password clicked (placeholder, no backend logic).")
+    def _handle_signup_(self):
+        print("[GUI] Signup Page Render.")
         from .signupClass import RegFrame  # Local import prevents startup circular loop
         self.app.show_frame(RegFrame)
