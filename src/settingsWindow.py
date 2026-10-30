@@ -7,12 +7,15 @@ except ImportError:
     USING_CTK = False
 
 from .themeClass import Theme
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
-    """Tabbed settings window: General / Connection / Authentication / Appearance / About."""
+    """Tabbed settings window: Connection / Appearance / About."""
 
-    AUTH_METHODS = ["Password", "API Key", "Certificate", "Token", "QR", "Public Key"]
-
+   
     def __init__(self, master, app, **kwargs):
         super().__init__(master, **kwargs)
         self.app = app
@@ -32,11 +35,7 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
         self._build_ui()
 
     def _build_ui(self):
-        # --- action bar (Save / Cancel) -------------------------------
-        # Packed BEFORE the tabview below (side="bottom") so it reserves
-        # its space first — otherwise the expanding tabview would claim
-        # the whole window and push these buttons out of view, same issue
-        # as the sidebar footer.
+       
         if USING_CTK:
             action_bar = ctk.CTkFrame(self, fg_color="transparent")
             action_bar.pack(fill="x", side="bottom", padx=14, pady=(0, 14))
@@ -53,21 +52,21 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
         if USING_CTK:
             self.tabview = ctk.CTkTabview(self, fg_color=Theme.CARD, segmented_button_selected_color=Theme.ACCENT)
             self.tabview.pack(fill="both", expand=True, padx=14, pady=14)
-            for tab_name in ("General", "Connection", "Authentication", "Appearance", "About"):
+            for tab_name in ( "Connection", "Appearance", "About"):
                 self.tabview.add(tab_name)
 
-            self._build_general_tab(self.tabview.tab("General"))
+  
             self._build_connection_tab(self.tabview.tab("Connection"))
-            self._build_auth_tab(self.tabview.tab("Authentication"))
+           
             self._build_appearance_tab(self.tabview.tab("Appearance"))
             self._build_about_tab(self.tabview.tab("About"))
         else:
             notebook = ttk.Notebook(self)
             notebook.pack(fill="both", expand=True, padx=10, pady=10)
             for tab_name, builder in (
-                ("General", self._build_general_tab),
+                
                 ("Connection", self._build_connection_tab),
-                ("Authentication", self._build_auth_tab),
+               
                 ("Appearance", self._build_appearance_tab),
                 ("About", self._build_about_tab),
             ):
@@ -86,42 +85,41 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
             tk.Entry(tab).pack(anchor="w", padx=16)
 
     def _build_connection_tab(self, tab):
+        
+        host = os.getenv('HOST','')
+        port = os.getenv('PORT','')        
         if USING_CTK:
             ctk.CTkLabel(tab, text="Host").pack(anchor="w", padx=16, pady=(16, 4))
 
             self.host_entry = ctk.CTkEntry(
                 tab,
-                placeholder_text="e.g. chat.example.com",
+                placeholder_text='e.g. chat.example.com or 192.168.0.1',
                 width=300
             )
             self.host_entry.pack(anchor="w", padx=16)
 
+            if host:
+                self.host_entry.insert(0,host)
             ctk.CTkLabel(tab, text="Port").pack(anchor="w", padx=16, pady=(16, 4))
 
             self.port_entry = ctk.CTkEntry(
                 tab,
-                placeholder_text="e.g. 8443",
+                placeholder_text='e.g. 8443',
                 width=140
             )
             self.port_entry.pack(anchor="w", padx=16)
 
+            if port:
+                self.port_entry.insert(0,port)
             self.reconnect_var = ctk.BooleanVar(value=True)
             ctk.CTkCheckBox(
                 tab,
-                text="Reconnect Automatically",
+                text="Remember me",
                 variable=self.reconnect_var,
                 fg_color=Theme.ACCENT
             ).pack(anchor="w", padx=16, pady=16)
 
-            ctk.CTkLabel(tab, text="Timeout (seconds)").pack(anchor="w", padx=16, pady=(4, 4))
-
-            self.timeout_entry = ctk.CTkEntry(
-                tab,
-                placeholder_text="30",
-                width=140
-            )
-            self.timeout_entry.pack(anchor="w", padx=16)
-            
+         
 
     def _build_auth_tab(self, tab):
         if USING_CTK:

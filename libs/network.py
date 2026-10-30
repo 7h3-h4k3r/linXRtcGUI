@@ -3,7 +3,7 @@ class Network:
 
 
     @staticmethod 
-    def validate(host,port,timeout,remember=False):
+    def validate(host,port,remember=False):
 
        
         if not host:
@@ -14,11 +14,7 @@ class Network:
             if port_int > 65535:
                 raise linxrtcgui("invalid port spacification")
         
-        if not timeout:
-
-            timeout = int(timeout)
-            if timeout > 300:
-                raise linxtcgui("invalid timeout 5 min only allowed")
+    
         
         return True
 

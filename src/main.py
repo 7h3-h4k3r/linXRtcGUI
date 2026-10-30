@@ -5,7 +5,7 @@ except ImportError:
     import tkinter as tk
     from tkinter import ttk
     USING_CTK = False
-
+ENV_PATH =".env"
 from .themeClass import Theme
 from .loginFrame import LoginFrame
 from .chatFrame import ChatFrame    
@@ -15,6 +15,9 @@ from .loginFrame import LoginFrame
 from .signupClass import RegFrame
 from libs.network import Network
 from libs.RtClient import RtClient
+from dotenv import load_dotenv ,set_key
+import os
+load_dotenv(ENV_PATH)
   
                
 def apply_ctk_defaults():
@@ -36,7 +39,9 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
 
         self.rtc = None
         self.connection =None
-    
+        self.host  = None
+        self.port = None
+        self.remember =  None
         self.title("Real Time E2E chat Application")
         self.geometry(Theme.WINDOW_SIZE)
         self.minsize(*Theme.MIN_SIZE)
@@ -52,7 +57,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         self._settings_window = None
 
         
-        self.chat_frame = None  # built lazily after login
+        self.chat_frame = None  
         self.frames = {}
 
         # Instantiate both screens once and stack them
@@ -91,11 +96,6 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
             self.chat_frame = ChatFrame(self, self)
             self.rtc.setRecv(self,self.chat_frame,username)
         self.chat_frame.pack(fill="both", expand=True)
-        # self.chat_frame.sidebar.set_profile(username)
-
-        # Populate with sample/demo GUI data only — replace with real data
-        # from your backend once connected.
-        # self._load_demo_state()
 
     def _load_demo_state(self):
         """Fills the UI with placeholder demo data purely for visual preview."""
@@ -192,19 +192,29 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         if getattr(self, "_settings_window", None) is None:
             Toast(self, "Connection details not yet configured", "error")
             return False
-        host = port =  remember = timeout = None
+        host = port =  remember = None
         try:
             host = self._settings_window.host_entry.get().strip()
-            port  = int(self._settings_window.port_entry.get().strip())
-         
+            port  = self._settings_window.port_entry.get().strip()
             remember = self._settings_window.reconnect_var.get()
-            timeout = self._settings_window.timeout_entry.get().strip()
-            self.connection = Network.validate(host,port,timeout,remember)
+            print(remember ,host,port)
+
+            if not host or not port:
+                Toast(self,'Fill Host configuration Details',"warning",duration_ms=3000)
+                return
+
+            self.connection = Network.validate(host,port,remember)
+            
             if self.connection and not self.rtc:
+                if remember:
+                    set_key(ENV_PATH, "HOST", host)
+                    os.environ["HOST"] = host 
+                    set_key(ENV_PATH, "PORT",port)
+                    os.environ["PORT"] = port
                 self.rtc = RtClient(host,port)
         
         except Exception as e:
-            print("yes i am " + str(e))
+            
             Toast(self, str(e),"error", duration_ms=3000)
         
 
