@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
+
 TYPE_LOGIN = 1
 TYPE_LOGIN_OK = 2
 TYPE_GMSG = 3
@@ -340,7 +341,9 @@ class RtClient:
         self.aesgcm = AESGCM(my_sender_key)
 
     
-
+    def signup(self,username,password,email):
+        print(username,password,email)
+        return True
     
 
     def on_send_message_sock(self,msg):

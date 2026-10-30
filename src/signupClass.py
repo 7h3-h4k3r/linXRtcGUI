@@ -44,7 +44,7 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
 
             pw_row = ctk.CTkFrame(card, fg_color="transparent")
             pw_row.pack(pady=6)
-            self.email_entry = ctk.CTkEntry(pw_row, placeholder_text="Email", show="•",
+            self.email_entry = ctk.CTkEntry(pw_row, placeholder_text="Email",
                                                 width=280, fg_color=Theme.CARD_LIGHT, border_width=0)
             self.email_entry.pack(side="left")
             pw_row = ctk.CTkFrame(card, fg_color="transparent")
@@ -56,11 +56,7 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
                                                 hover_color=Theme.ACCENT, command=self._toggle_password)
             self.toggle_pw_btn.pack(side="left", padx=(6, 0))
 
-            self.remember_var = ctk.BooleanVar(value=False)
-            ctk.CTkCheckBox(card, text="Remember Me", variable=self.remember_var,
-                             text_color=Theme.TEXT_SECONDARY, font=Theme.FONT_SMALL,
-                             fg_color=Theme.ACCENT).pack(pady=(14, 4), anchor="w", padx=50)
-
+           
             self.login_btn = ctk.CTkButton(card, text="Signup", width=280, fg_color=Theme.ACCENT,
                                             hover_color=Theme.ACCENT_HOVER, font=Theme.FONT_BOLD,
                                             command=self._handle_login)
@@ -115,6 +111,9 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     # -- placeholder-callback wrappers ----------------------------------
     def _handle_login(self):
         
+        if not self.app.connection:
+            self.app.on_config()
+
         if self.app.connection:
             username = self.username_entry.get().strip()
             password = self.password_entry.get()
@@ -122,6 +121,8 @@ class RegFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
 
             if not username or not password or not email:
                 Toast(self,'User Credentials Missing ',"warning", duration_ms=3000)
+
+            self.app.on_signup(username,password,email)
             self.set_status("Connecting...", "info")
         else:
             Toast(self, "Host configuration error","warning", duration_ms=3000)   

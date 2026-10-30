@@ -7,7 +7,11 @@ except ImportError:
     USING_CTK = False
 from .themeClass import Theme
 from .toastClass import Toast
-# from .signupClass import RegFrame
+import keyring
+from dotenv import load_dotenv ,set_key
+from . import ENV_PATH
+import os
+load_dotenv(ENV_PATH)
 class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
     """Centered login card shown before the user authenticates."""
 
@@ -31,6 +35,11 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             card = tk.Frame(self, bg=Theme.CARD, width=380, height=480)
         card.place(relx=0.5, rely=0.5, anchor="center")
         card.pack_propagate(False)
+        
+        username = os.getenv("USERNAME_C","")
+        cre = os.getenv("CREDENTIALS_REM","")
+        print(username)
+        print(cre)
 
         if USING_CTK:
             ctk.CTkLabel(card, text="🔒 Secure Chat", font=Theme.FONT_TITLE,
@@ -42,11 +51,19 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
                                                 fg_color=Theme.CARD_LIGHT, border_width=0)
             self.username_entry.pack(pady=6)
 
+            if username and cre:
+                self.username_entry.insert(0,username)
+
             pw_row = ctk.CTkFrame(card, fg_color="transparent")
             pw_row.pack(pady=6)
             self.password_entry = ctk.CTkEntry(pw_row, placeholder_text="Password", show="•",
                                                 width=240, fg_color=Theme.CARD_LIGHT, border_width=0)
             self.password_entry.pack(side="left")
+            if cre and username:
+                retrieved_password = keyring.get_password("chatappv_0.1",username)
+                if retrieved_password:
+                    self.password_entry.insert(0,retrieved_password)
+
             self.toggle_pw_btn = ctk.CTkButton(pw_row, text="👁", width=34, fg_color=Theme.CARD_LIGHT,
                                                 hover_color=Theme.ACCENT, command=self._toggle_password)
             self.toggle_pw_btn.pack(side="left", padx=(6, 0))
@@ -112,6 +129,20 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
         if self.app.connection:
             username = self.username_entry.get().strip()
             password = self.password_entry.get()
+            rem = self.remember_var.get()
+            if rem:
+                keyring.set_password("chatappv_0.1",username,password)
+                set_key(ENV_PATH, "USERNAME_C", username)
+                os.environ["USERNAME_C"] = username 
+                set_key(ENV_PATH,"CREDENTIALS_REM",'True')
+                os.environ["CREDENTIALS_REM"] = 'True'
+            else:
+                set_key(ENV_PATH, "USERNAME_C",'')
+                os.environ["USERNAME_C"] = ''
+                set_key(ENV_PATH,"CREDENTIALS_REM",'')
+                os.environ["CREDENTIALS_REM"] = ''
+            print("Password stored securely in the system vault!")
+            
             self.set_status("Connecting...", "info")
 
             if username == 'admin' and password == 'pass@123':

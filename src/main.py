@@ -5,7 +5,7 @@ except ImportError:
     import tkinter as tk
     from tkinter import ttk
     USING_CTK = False
-ENV_PATH =".env"
+
 from .themeClass import Theme
 from .loginFrame import LoginFrame
 from .chatFrame import ChatFrame    
@@ -16,6 +16,8 @@ from .signupClass import RegFrame
 from libs.network import Network
 from libs.RtClient import RtClient
 from dotenv import load_dotenv ,set_key
+import time
+from . import ENV_PATH
 import os
 load_dotenv(ENV_PATH)
   
@@ -38,7 +40,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         apply_ctk_defaults()
 
         self.rtc = None
-        self.connection =None
+        self.connection = self.on_config()
         self.host  = None
         self.port = None
         self.remember =  None
@@ -141,8 +143,21 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
                 
         except Exception as e:
             self.rtc.sock.close()
-            Toast(self,'SERVER ERR:'+str(e),"error")
+            Toast(self,'SERVER ERR:Host is not Alive',"error")
 
+
+    def on_signup(self, username, password, email):
+        """PLACEHOLDER CALLBACK — connect your authentication logic here."""
+        print(f"[CALLBACK] on_signup(username={username!r}, password=<hidden> ,email={email})")
+        try:
+            self.connection = self.rtc.signup(username,password,email)
+            if self.connection:
+                Toast(self,"Signup Success",duration_ms=7000)
+                time.sleep(4)
+                self.show_frame(LoginFrame)
+        except Exception as e:
+            self.rtc.sock.close()
+            Toast(self,'SERVER ERR: Host is not Alive',"error")
 
     def _simulate_login_result(self, username):
         """Visual-only simulation so the GUI is demonstrable stand-alone."""
@@ -186,33 +201,55 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         """PLACEHOLDER CALLBACK — connect your auth-method-switch logic here."""
         print(f"[CALLBACK] on_change_auth(method={method!r})")
         self.current_auth_method = method
+    def on_config(self):
+        remember = os.getenv('REM','')
+        if not remember:
+            Toast(self,"Connection details not yet configured","error")
+            return False
+        host = os.getenv('HOST','')
+        port = os.getenv('PORT','')
+        if not host or not port:
+            Toast(self,'Please Configure the host and port',"warning")
+            return False
+        self.connection = Network.validate(host,port,remember)
+        if self.connection and not self.rtc:
+            self.rtc = RtClient(host,port)
 
+        return self.connection
     def on_save_settings(self):
         """PLACEHOLDER CALLBACK — connect your settings-persistence logic here."""
         if getattr(self, "_settings_window", None) is None:
-            Toast(self, "Connection details not yet configured", "error")
+            Toast(self, "gi i am doig", "error")
             return False
         host = port =  remember = None
         try:
             host = self._settings_window.host_entry.get().strip()
             port  = self._settings_window.port_entry.get().strip()
             remember = self._settings_window.reconnect_var.get()
-            print(remember ,host,port)
 
             if not host or not port:
                 Toast(self,'Fill Host configuration Details',"warning",duration_ms=3000)
                 return
-
+            print(remember)
+            if remember:
+                set_key(ENV_PATH, "HOST", host)
+                os.environ["HOST"] = host 
+                set_key(ENV_PATH, "PORT",port)
+                os.environ["PORT"] = port
+                set_key(ENV_PATH,"REM",'True')
+                os.environ["REM"] = 'True'
+            else:
+                set_key(ENV_PATH, "HOST", '')
+                os.environ["HOST"] =""
+                set_key(ENV_PATH, "PORT",'')
+                os.environ["PORT"] = ""
+                set_key(ENV_PATH,"REM",'')
+                os.environ["PORT"] = ""
             self.connection = Network.validate(host,port,remember)
-            
             if self.connection and not self.rtc:
-                if remember:
-                    set_key(ENV_PATH, "HOST", host)
-                    os.environ["HOST"] = host 
-                    set_key(ENV_PATH, "PORT",port)
-                    os.environ["PORT"] = port
                 self.rtc = RtClient(host,port)
-        
+
+            return self.connection
         except Exception as e:
             
             Toast(self, str(e),"error", duration_ms=3000)

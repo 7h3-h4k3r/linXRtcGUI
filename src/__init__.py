@@ -5,3 +5,4 @@ except ImportError:
     import tkinter as tk
     from tkinter import ttk
     USING_CTK = False
+ENV_PATH =".env"

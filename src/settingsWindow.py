@@ -87,7 +87,8 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
     def _build_connection_tab(self, tab):
         
         host = os.getenv('HOST','')
-        port = os.getenv('PORT','')        
+        port = os.getenv('PORT','')
+        rem = os.getenv('REM','')    
         if USING_CTK:
             ctk.CTkLabel(tab, text="Host").pack(anchor="w", padx=16, pady=(16, 4))
 
@@ -98,7 +99,7 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
             )
             self.host_entry.pack(anchor="w", padx=16)
 
-            if host:
+            if host and rem:
                 self.host_entry.insert(0,host)
             ctk.CTkLabel(tab, text="Port").pack(anchor="w", padx=16, pady=(16, 4))
 
@@ -109,7 +110,7 @@ class SettingsWindow(ctk.CTkToplevel if USING_CTK else tk.Toplevel):
             )
             self.port_entry.pack(anchor="w", padx=16)
 
-            if port:
+            if port and rem:
                 self.port_entry.insert(0,port)
             self.reconnect_var = ctk.BooleanVar(value=True)
             ctk.CTkCheckBox(
