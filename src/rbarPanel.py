@@ -48,7 +48,7 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
 
     def _build_ui(self):
         self._section_title("ROOM INFO")
-        self._info_row("Room Name", "room_name_value")
+        self._info_row("Name", "name_value")
         self._info_row("Connected Users", "connected_users_value")
 
         self._section_title("SERVER INFO")
@@ -65,10 +65,9 @@ class RightPanel(ctk.CTkFrame if USING_CTK else tk.Frame):
         self.client_logs.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
     def update_info(self, **kwargs):
-        """Update any subset of: room_name, connected_users, latency,
-        encryption_mode, auth_type, connection_quality."""
+       
         mapping = {
-            "room_name": "room_name_value",
+            "user_name": "name_value",
             "connected_users": "connected_users_value",
             "latency": "latency_value",
             "encryption_mode": "encryption_mode_value",

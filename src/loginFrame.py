@@ -125,8 +125,10 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             if USING_CTK else self.status_label.configure(text=text, fg=color_map.get(kind, Theme.TEXT_MUTED))
 
     def _handle_login(self):
-        
-        if self.app.connection:
+        # if not self.app.connection:
+        #     self.app.on_config()
+        try:
+           
             username = self.username_entry.get().strip()
             password = self.password_entry.get()
             rem = self.remember_var.get()
@@ -145,19 +147,12 @@ class LoginFrame(ctk.CTkFrame if USING_CTK else tk.Frame):
             
             self.set_status("Connecting...", "info")
 
-            if username == 'admin' and password == 'pass@123':
-                self.app.on_login(username, password)
-            
-            elif username == 'nimki' and password == 'pass@123':
-                self.app.on_login(username,password)
-
-            elif username == 'da' and password == '1234':
+            if username and password:
                 self.app.on_login(username,password)
             else:
-                Toast(self, "invalid credentials","warning", duration_ms=3000)
-        else:
-            Toast(self, "Host configuration error","warning", duration_ms=3000)   
-
+                Toast(self, "invalid credentials","warning", duration_ms=3000)   
+        except ConnectionRefusedError:
+            Toast(self,"Host is not alive","info",duration_ms=3000)
     def _handle_settings(self):
         self.app.on_open_settings()  
 

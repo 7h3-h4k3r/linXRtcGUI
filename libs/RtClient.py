@@ -19,16 +19,20 @@ TYPE_GMSG = 3
 COUNT_CONN = 0x56
 HEADER_FMT = "!IBBBII"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
-
+EXIT=0x64
 PING=0X57
+EXIT_MSG=0x65
 PONG=0x58
 MAGIC = 0x737269
 VERSION = 1
+SIG=0x68
+SIG_FAIL=0x67
 SHARE_GROUP_KEY=0x60
 RECV_GROUP_KEY=0x63
-
+AUTH_FAIL=0x66
 U_JOIN=0x61
 I_KEYS=0x62
+SIG_PASS=0X68
 
 
 
@@ -49,19 +53,23 @@ class MiddleWare:
 
     @staticmethod
     def send_packet(sock, packet_type, payload, flags=0):
-        checksum = zlib.crc32(payload)
+        try:
+            checksum = zlib.crc32(payload)
 
-        header = struct.pack(
-            HEADER_FMT,
-            MAGIC,
-            VERSION,
-            packet_type,
-            flags,
-            len(payload),
-            checksum
-        )
+            header = struct.pack(
+                HEADER_FMT,
+                MAGIC,
+                VERSION,
+                packet_type,
+                flags,
+                len(payload),
+                checksum
+            )
 
-        sock.sendall(header+payload)
+            sock.sendall(header+payload)
+        except OSError:
+            print('Cleanup the Session')
+            sock.close()
 
     @staticmethod
     def recv_packet(sock):
@@ -240,15 +248,20 @@ class recvMessage(threading.Thread):
     def run(self):
         print("Recving Message from the LinXRTC server recvMessage() Threading start\n")
         self.chatplace.right_panel.update_info(
+            user_name=self.username,
             encryption_mode='EndToEnd Encryption',
-            auth_type='SIGNUP AND LOGIN'
+            auth_type='Signup & Login'
         )
-        while self.running:
-            try:
+        self.chatplace.status_bar.update_status(connection_state='online',connection_text='Connected')
+        try:
+            packet = 0
+            while self.running:
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
-
+                if packet_type is None:
+                    # Connection dropped cleanly by remote host
+                    break
+                packet +=1
                 if packet_type == TYPE_GMSG:
-
                     try:
                         msg = self.receive_group_message(payload)
                         if msg:
@@ -256,21 +269,21 @@ class recvMessage(threading.Thread):
                     except Exception as err:
                         print(f"Error handling TYPE_GMSG: {err}")
                     
-                    self.chatplace.right_panel.update_client_log(f"We recv Message ",Theme.YELLOW)
-                  
+                    self.chatplace.right_panel.update_client_log("We recv Message ", Theme.YELLOW)
+                
                 elif packet_type == U_JOIN:
                     print('new user joined bro lets see our who he are ')
-                    username , pubkey = self.get_user_and_pubkey(payload)
-                    print(username,pubkey)
+                    username, pubkey = self.get_user_and_pubkey(payload)
+                    print(username, pubkey)
                     rsa_pub = serialization.load_pem_public_key(pubkey.encode())
                     peer_public_key[username] = rsa_pub
-                    self.send_key_to(username,rsa_pub)
-                    self.chatplace.right_panel.update_client_log(username+' Joined',Theme.GREEN)
+                    self.send_key_to(username, rsa_pub)
+                    self.chatplace.right_panel.update_client_log(username + ' Joined', Theme.GREEN)
+
                 elif packet_type == RECV_GROUP_KEY:
                     sender_username, enc_key = self.unpack_shared_key(payload)
                     self.chatplace.right_panel.update_client_log(f"Received shared key from {sender_username}")
                     
-                    # Decrypt with your private RSA key
                     decrypted_key = self.pri_key.decrypt(
                         enc_key,
                         padding.OAEP(
@@ -280,41 +293,67 @@ class recvMessage(threading.Thread):
                         )
                     )
                     peer_group_key[sender_username] = decrypted_key
+
                 elif packet_type == I_KEYS:
                     data = json.loads(payload.decode("utf-8"))
                     received_keys = data["keys"]
-                    self.chatplace.right_panel.update_client_log(f"Recv all pubkeys",Theme.BLUE)
-                  
+                    self.chatplace.right_panel.update_client_log("Recv all pubkeys", Theme.BLUE)
 
-                    for user , pem in data['keys'].items():
+                    for user, pem in data['keys'].items():
                         if user != self.username:
                             rsa_pub = serialization.load_pem_public_key(pem.encode())
                             peer_public_key[user] = rsa_pub
-                            self.send_key_to(user,rsa_pub)
-                    self.chatplace.right_panel.update_client_log(f"SenderKey shared",Theme.BLUE)
-                  
+                            self.send_key_to(user, rsa_pub)
+                    self.chatplace.right_panel.update_client_log("SenderKey shared", Theme.BLUE)
+                
                 elif packet_type == COUNT_CONN:
-                    self.chatplace.right_panel.update_info(
-                            connected_users=payload[0],
-                        )
-                    print("Connection Deails",payload)
+                    self.chatplace.right_panel.update_info(connected_users=payload[0])
+                    print("Connection Details", payload)
+
                 elif packet_type == PONG:
                     latency_is = (time.monotonic() - self.latency.last_ping) * 1000
+                    print(f"Latency: {latency_is:.2f} ms")
+                    self.chatplace.right_panel.update_info(latency=f"{latency_is:.2f} ms")
+                    self.chatplace.status_bar.update_status(ping=latency_is)
 
-                    print(f"Latacny :{latency_is:.2f} ms")
+                    routeR.set_latency(latency_is, self.chatplace.right_panel)
 
-                    self.chatplace.right_panel.update_info(
-                        latency=f"{latency_is:.2f} ms"
-                    )
-                    routeR.set_latency(latency_is,self.chatplace.right_panel)
-               
+                elif packet_type == EXIT:
+                    print("Received EXIT packet from server")
+                    break
+                elif packet_type == EXIT_MSG:
+                    username = payload.decode('utf-8', errors='ignore').strip('\x00')
+                    msg = f"{username} Disconnected"
+                    self.chatplace.right_panel.update_client_log(msg, Theme.RED)
+            
                 else:
+                    packet-=1
                     print("Packet:", packet_type)
+                self.chatplace.status_bar.update_status(packet_count=packet)
 
-            except Exception as e:
-                print("Disconnected:", e)
-                break 
-        
+        except Exception as e:
+            print(f"Disconnected due to error: {e}")
+        finally:
+            print("Cleaning up session...")
+            self.running = False
+            
+            if getattr(self, "latency", None):
+                try:
+                    self.latency.stop()
+                except Exception:
+                    pass
+
+            if getattr(self, "sock", None):
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+                self.sock = None
+
+            # Clear cryptographic keys/session state
+            peer_public_key.clear()
+            peer_group_key.clear()
+            
 
     def stop(self):
         self.running = False
@@ -339,13 +378,41 @@ class RtClient:
         my_sender_key = AESGCM.generate_key(bit_length=256)
        
         self.aesgcm = AESGCM(my_sender_key)
-
     
+            
+
+            
+        
     def signup(self,username,password,email):
-        print(username,password,email)
+        user_info = {
+            "username":username,
+            "password":password,
+            "email":email
+        }
+
+        payload = user_info.encode()
+
+        MiddleWare.send_packet(self.sock,SIG,payload)
+        packet_type, payload = MiddleWare.recv_packet(self.sock)
+
+        print(payload.decode())
+        try:
+            if packet_type == SIG_FAIL:
+                return False
+            elif packet_type == SIG_PASS:
+                return True
+                
+        except (BrokenPipeError, ConnectionResetError):
+            print("Disconnected")
+            self.sock.close()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.sock.close()
         return True
     
-
+    def exit(self):
+        MiddleWare.send_packet(self.sock,EXIT, b'')
     def on_send_message_sock(self,msg):
 
        
@@ -361,7 +428,7 @@ class RtClient:
             print("packe sending...")
             
                 
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConneacketconfigctionResetError):
             print("Disconnected")
             self.sock.close()
             
@@ -401,6 +468,9 @@ class RtClient:
         try:
             if packet_type == TYPE_LOGIN_OK:
                 return True
+            elif packet_type == AUTH_FAIL:
+                print('i recived auth failed')
+                return False
                 
         except (BrokenPipeError, ConnectionResetError):
             print("Disconnected")

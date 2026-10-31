@@ -40,9 +40,10 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         apply_ctk_defaults()
 
         self.rtc = None
-        self.connection = self.on_config()
+        
         self.host  = None
         self.port = None
+        self.connection = self.on_config()
         self.remember =  None
         self.title("Real Time E2E chat Application")
         self.geometry(Theme.WINDOW_SIZE)
@@ -54,123 +55,81 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_exit)
 
-        # Simple in-memory GUI state (NOT backend state / no persistence).
         self.current_auth_method = "Password"
         self._settings_window = None
 
         
         self.chat_frame = None  
         self.frames = {}
-
-        # Instantiate both screens once and stack them
         for F in (LoginFrame, RegFrame):
             frame = F(master=self, app=self)
             self.frames[F] = frame
            
-
+       
         self.show_frame(LoginFrame)
 
     
-        
     def show_frame(self, frame_class):
         for f in self.frames.values():
             f.pack_forget()
         frame = self.frames[frame_class]
         frame.pack(fill="both", expand=True)  
-    # ------------------------------------------------------------------
-    # NAVIGATION
-    # ------------------------------------------------------------------
-    def show_login_screen(self):
-        if self.chat_frame is not None:
-            self.chat_frame.pack_forget()
-        self.login_frame.pack(fill="both", expand=True)
-        self.login_frame.set_status("Disconnected", "muted")
+    
 
-    def show_reg_screen(self):
-        if self.chat_frame is not None:
-            self.chat_frame.pack_forget()
-        self.signup_frame.pack(fill="both", expand=True)
-        self.signup_frame.set_status("Disconnected", "muted")
         
     def show_chat_screen(self, username: str = "User"):
-        self.login_frame.pack_forget()
+        self.frames[LoginFrame].pack_forget()
         if self.chat_frame is None:
             self.chat_frame = ChatFrame(self, self)
             self.rtc.setRecv(self,self.chat_frame,username)
         self.chat_frame.pack(fill="both", expand=True)
-
-    def _load_demo_state(self):
-        """Fills the UI with placeholder demo data purely for visual preview."""
-        demo_users = [
-            {"name": "Alice", "status": "online", "last_message": "See you at 5?"},
-            {"name": "Bob", "status": "away", "last_message": "Thanks!"},
-            {"name": "Charlie", "status": "offline", "last_message": ""},
-            {"name" : "dharani","status":"offline","last_message":"now harivasan at room"},
-            {"name": "Alice", "status": "online", "last_message": "See you at 5?"},
-            {"name": "Bob", "status": "away", "last_message": "Thanks!"},
-            {"name": "Charlie", "status": "offline", "last_message": ""},
-        ]
-        self.chat_frame.sidebar.user_list.populate(demo_users)
-        self.chat_frame.sidebar.recent_chats.populate([])  # shows empty state
-
-        # self.chat_frame.right_panel.update_info(
-        #     room_name="general", connected_users=len(demo_users),
-        #     latency="-- ms", encryption_mode="Pending backend",
-        #     auth_type=self.current_auth_method, connection_quality="Unknown",
-        # )
-        self.chat_frame.status_bar.update_status(
-            connection_state="offline", connection_text="Disconnected",
-            socket_state="idle", ping="--", packet_count=0, protocol_version="v1.0",
-        )
-
-    # ==================================================================
-    # PLACEHOLDER CALLBACKS
-    # ------------------------------------------------------------------
-    # Everything below is intentionally empty of real logic. Replace the
-    # body of each method (or attach your own handlers) to wire up your
-    # custom socket protocol, authentication, and encryption.
-    # ==================================================================
-
+        
     def on_login(self, username, password):
+        print(self.host ,self.port)
         """PLACEHOLDER CALLBACK — connect your authentication logic here."""
         print(f"[CALLBACK] on_login(username={username!r}, password=<hidden>)")
+        if self.rtc is None:
+            self.rtc = RtClient(self.host,self.port)
         try:
             self.connection = self.rtc.start(username,password)
+            print(self.host,self.port)
+    
             if self.connection:
                 Toast(self,"cOzy Place for Hacker's")
-                self.login_frame.set_status("Authenticating...", "info")
+                self.frames[LoginFrame].set_status("Authenticating...", "info")
                 self.after(700, lambda: self._simulate_login_result(username))
-                
+            else:
+                Toast(self,'Auth Failed Credentials is invalid',"error")
+            
         except Exception as e:
             self.rtc.sock.close()
-            Toast(self,'SERVER ERR:Host is not Alive',"error")
+            self.rtc = None
+            print(str(e))
+            Toast(self,'SERVER ERR:'+str(e),"error")
 
 
     def on_signup(self, username, password, email):
         """PLACEHOLDER CALLBACK — connect your authentication logic here."""
-        print(f"[CALLBACK] on_signup(username={username!r}, password=<hidden> ,email={email})")
+        print(f"[CALLBACK] on_signup(username={username!r}, password=<hidden> ,email={email}")
+        if self.rtc is None:
+            self.rtc = RtClient(self.host,self.port)
         try:
             self.connection = self.rtc.signup(username,password,email)
             if self.connection:
                 Toast(self,"Signup Success",duration_ms=7000)
-                time.sleep(4)
                 self.show_frame(LoginFrame)
         except Exception as e:
             self.rtc.sock.close()
+            self.rtc = None
             Toast(self,'SERVER ERR: Host is not Alive',"error")
 
     def _simulate_login_result(self, username):
         """Visual-only simulation so the GUI is demonstrable stand-alone."""
         if username:
-            self.login_frame.set_status("Connected", "success")
+            self.frames[LoginFrame].set_status("Connected", "success")
             self.after(400, lambda: self.show_chat_screen(username))
         else:
-            self.login_frame.set_status("Authentication Failed", "error")
-
-    def on_logout(self):
-        """PLACEHOLDER CALLBACK — connect your disconnect/session-teardown logic here."""
-        print("[CALLBACK] on_logout()")
-        self.show_login_screen()
+            self.frames[LoginFrame].set_status("Authentication Failed", "error")
 
     def on_send_message(self, message):
         """PLACEHOLDER CALLBACK — connect your message-send/encryption logic here."""
@@ -181,6 +140,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_attach(self):
         """PLACEHOLDER CALLBACK — connect your file-attachment logic here."""
         print("[CALLBACK] on_attach()")
+        Toast(self,"not updated","info")
 
     def on_open_settings(self):
         """PLACEHOLDER CALLBACK — opens the settings window (GUI-only)."""
@@ -211,15 +171,19 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
         if not host or not port:
             Toast(self,'Please Configure the host and port',"warning")
             return False
-        self.connection = Network.validate(host,port,remember)
-        if self.connection and not self.rtc:
-            self.rtc = RtClient(host,port)
-
-        return self.connection
+        port = int(port)
+        try:
+            self.connection = Network.validate(host,port,remember)
+            self.host = host
+            self.port = int(port)
+            
+            return self.connection
+        except ConnectionResetError:
+            Toast(self,"Host is not a Alive",'info')
     def on_save_settings(self):
         """PLACEHOLDER CALLBACK — connect your settings-persistence logic here."""
         if getattr(self, "_settings_window", None) is None:
-            Toast(self, "gi i am doig", "error")
+            Toast(self, "_settings_error", "error")
             return False
         host = port =  remember = None
         try:
@@ -245,11 +209,13 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
                 os.environ["PORT"] = ""
                 set_key(ENV_PATH,"REM",'')
                 os.environ["PORT"] = ""
+            port = int(port)
+            
             self.connection = Network.validate(host,port,remember)
-            if self.connection and not self.rtc:
-                self.rtc = RtClient(host,port)
-
-            return self.connection
+            if self.connection:
+                self.host = host 
+                self.port = int(port)
+                self.remember = remember
         except Exception as e:
             
             Toast(self, str(e),"error", duration_ms=3000)
@@ -267,6 +233,12 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
     def on_exit(self):
         """PLACEHOLDER CALLBACK — connect your graceful-disconnect logic here."""
         print("[CALLBACK] on_exit()")
-        if self.rtc is not None and self.rtc.sock is not None:
-            self.rtc.sock.close()
+        if self.rtc is not None and getattr(self.rtc, "sock", None) is not None:
+            try:
+                self.rtc.exit()
+                self.rtc.sock.close()
+            except Exception as e:
+                print(f"Error closing socket: {e}")
+                
+        self.rtc = None
         self.destroy()
