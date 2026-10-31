@@ -118,6 +118,8 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
             if self.connection:
                 Toast(self,"Signup Success",duration_ms=7000)
                 self.show_frame(LoginFrame)
+            else:
+                Toast(self,"Signup Failed Credentails already in",duration_ms=4000)
         except Exception as e:
             self.rtc.sock.close()
             self.rtc = None
@@ -130,7 +132,7 @@ class MainApplication(ctk.CTk if USING_CTK else tk.Tk):
             self.after(400, lambda: self.show_chat_screen(username))
         else:
             self.frames[LoginFrame].set_status("Authentication Failed", "error")
-
+   
     def on_send_message(self, message):
         """PLACEHOLDER CALLBACK — connect your message-send/encryption logic here."""
         print(f"[CALLBACK] on_send_message(message={message!r})")

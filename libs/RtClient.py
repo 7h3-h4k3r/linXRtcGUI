@@ -158,7 +158,7 @@ class recvMessage(threading.Thread):
         self.aesgcm = aesgcm
         self.pri_key = pri_key
         self.username = username
-    
+        
 
     def send_key_to(self,target_user,rsa_pub):
         enc_key = rsa_pub.encrypt(
@@ -258,7 +258,6 @@ class recvMessage(threading.Thread):
             while self.running:
                 packet_type, payload = MiddleWare.recv_packet(self.sock)
                 if packet_type is None:
-                    # Connection dropped cleanly by remote host
                     break
                 packet +=1
                 if packet_type == TYPE_GMSG:
@@ -373,7 +372,8 @@ class RtClient:
         ).decode()
 
         print('MY Pub Key ',self.my_pub_pem)
-        
+        self.sock = socket.socket()
+        self.sock.connect((self.ip, self.port))
         global my_sender_key 
         my_sender_key = AESGCM.generate_key(bit_length=256)
        
@@ -383,34 +383,41 @@ class RtClient:
 
             
         
-    def signup(self,username,password,email):
+    def signup(self, username, password, email):
+    
         user_info = {
-            "username":username,
-            "password":password,
-            "email":email
+            "username": username,
+            "password": password,
+            "email": email
         }
 
-        payload = user_info.encode()
-
-        MiddleWare.send_packet(self.sock,SIG,payload)
-        packet_type, payload = MiddleWare.recv_packet(self.sock)
-
-        print(payload.decode())
         try:
-            if packet_type == SIG_FAIL:
-                return False
-            elif packet_type == SIG_PASS:
+
+            payload = json.dumps(user_info).encode("utf-8")
+
+            MiddleWare.send_packet(self.sock, SIG, payload)
+            packet_type, resp_payload = MiddleWare.recv_packet(self.sock)
+
+            if resp_payload:
+                print(resp_payload.decode("utf-8", errors="replace"))
+            print(packet_type)
+            if packet_type == SIG_PASS:
                 return True
-                
+            elif packet_type == SIG_FAIL:
+                return False
+            else:
+                print(f"Unexpected packet type received: {packet_type}")
+                return False
+
         except (BrokenPipeError, ConnectionResetError):
-            print("Disconnected")
+            print("Disconnected from server.")
             self.sock.close()
+            return False
         except Exception as e:
-            import traceback
             traceback.print_exc()
             self.sock.close()
-        return True
-    
+            return False
+        
     def exit(self):
         MiddleWare.send_packet(self.sock,EXIT, b'')
     def on_send_message_sock(self,msg):
@@ -444,9 +451,9 @@ class RtClient:
         recv_threading.start()
     
     def start(self,username,password):
-        self.sock = socket.socket()
-        self.sock.connect((self.ip, self.port))
+        
         print(self.my_pub_pem)
+
         username = username.encode()
         password = password.encode()
         public_key = self.my_pub_pem.encode()
